@@ -1,5 +1,6 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, update
 from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
+from sqlalchemy.orm import relationship
 from datetime import datetime
 from astro import to_hours
 
@@ -54,6 +55,7 @@ class Star(Base):
     rv = Column(Float, nullable=True)
     ci = Column(Float, nullable=True)
     con = Column(Integer, ForeignKey('Constellations.id'), nullable=True)
+    con_ent = relationship("Constellation", foreign_keys=con)
 
     def __init__(self, ra, dec, dist, pmra, pmdec, mag, absmag, lum, hip = None, hd = None, hr = None, gl = None, bf = None,
         name_eng = None, name_rus = None, rv = None, spect = None, ci = None, bayer = None, flam = None, con = None,var = None):
@@ -85,19 +87,18 @@ class Star(Base):
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import func
 
-Session = sessionmaker(bind=engine)
+""" Session = sessionmaker(bind=engine)
 session = Session()
-
-""" cons = []
+cons = []
 for line in open('_stars/cons.csv'):
     obj = obj = line.strip().split(';')
     con = Constellation(obj[1], obj[0], obj[2], obj[3], obj[4])
     cons.append(con)
 
 session.add_all(cons)
-session.commit() """
+session.commit()
 
-""" _csv = open('_stars/hygdata_v3.csv','r')
+_csv = open('_stars/hygdata_v3.csv','r')
 cons = session.query(Constellation).all()
 _csv.readline()
 stars = []
@@ -117,10 +118,11 @@ for line in _csv:
             obj[3], obj[4], obj[5], obj[6], None, obj[12], obj[15], obj[16], obj[27], obj[28], obj[29], obj[34])
         stars.append(star)
 session.add_all(stars)
-session.commit() """
+session.commit()
+session.close() """
 
 from astro.starmap import Viewpoint
-view = Viewpoint(55.90790, 37.41555, datetime(2019, 5, 28, 23, 10), 3)
+view = Viewpoint(55.90790, 37.41555, datetime(2019, 2, 28, 19, 10), 3)
 print('UTC:', view.utc_datetime_now)
 print('Local', view.datetime_now)
 print('Eq_date', view.start_point)
@@ -129,6 +131,24 @@ zm = (z - int(z)) * 60
 print('Cur Eq', int(z), int(zm))
 
 c = view.visible_stars()
+print(len([y for y in c if y.mag < 3]))
+print(set([x.con_ent.name_eng for x in c]))
 
-print(len(c))
-session.close()
+import matplotlib.pyplot as plt
+import numpy as np
+
+def ttt(x):
+    if x.ra > 18:
+        x.ra -= 24
+    return x
+
+c = list(map(ttt, c))
+
+decs = [x.dec for x in c]
+ras = [x.ra for x in c]
+fig = plt.figure(figsize=[20,20])
+fig.suptitle('Star Sky')
+plt.xlabel('Longitude')
+plt.ylabel('Latitude')
+plt.scatter(ras, decs, marker='o', c='r')
+plt.show()
