@@ -1,5 +1,7 @@
 from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
+from datetime import datetime
+from astro import to_hours
 
 engine = create_engine('sqlite:///env/db/stars.db')
 Base = declarative_base()
@@ -117,12 +119,16 @@ for line in _csv:
 session.add_all(stars)
 session.commit() """
 
-print(session.query(Star).count())
-print(session.query(Constellation).count())
 from astro.starmap import Viewpoint
-view = Viewpoint(55.9078213, 37.4153854)
-view2 = Viewpoint(55.9078213, 37.4153854)
+view = Viewpoint(55.90790, 37.41555, datetime(2019, 5, 28, 23, 10), 3)
+print('UTC:', view.utc_datetime_now)
+print('Local', view.datetime_now)
+print('Eq_date', view.start_point)
+z = to_hours(view.degrees_gone)
+zm = (z - int(z)) * 60
+print('Cur Eq', int(z), int(zm))
+
 c = view.visible_stars()
-c2 = view2.visible_stars()
-print(len(c), len(c2))
+
+print(len(c))
 session.close()
