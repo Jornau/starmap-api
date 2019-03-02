@@ -122,33 +122,41 @@ session.commit()
 session.close() """
 
 from astro.starmap import Viewpoint
-view = Viewpoint(55.90790, 37.41555, datetime(2019, 2, 28, 19, 10), 3)
+
+view = Viewpoint(55, 37, datetime(2019, 2, 28, 19, 10), 3)
 print('UTC:', view.utc_datetime_now)
 print('Local', view.datetime_now)
 print('Eq_date', view.start_point)
+print(view.degrees_gone)
 z = to_hours(view.degrees_gone)
 zm = (z - int(z)) * 60
 print('Cur Eq', int(z), int(zm))
 
-c = view.visible_stars()
-print(len([y for y in c if y.mag < 3]))
-print(set([x.con_ent.name_eng for x in c]))
+c = view.visible_stars_now()
 
 import matplotlib.pyplot as plt
-import numpy as np
-
-def ttt(x):
-    if x.ra > 18:
-        x.ra -= 24
-    return x
-
-c = list(map(ttt, c))
-
-decs = [x.dec for x in c]
-ras = [x.ra for x in c]
-fig = plt.figure(figsize=[20,20])
+c = [x for x in c if x.mag < 5]
+decs = [x.alt for x in c]
+ras = [x.az for x in c]
+siz = [6*10 - x.mag*10 for x in c]
+names = [x.con_ent.name_eng for x in c]
+fig = plt.figure(figsize=[10,10])
 fig.suptitle('Star Sky')
 plt.xlabel('Longitude')
 plt.ylabel('Latitude')
-plt.scatter(ras, decs, marker='o', c='r')
-plt.show()
+plt.scatter(ras, decs, marker='o', c='r', s=siz)
+#plt.gca().invert_xaxis()
+for i, txt in enumerate(names):
+    if txt != '':
+        plt.text(ras[i], decs[i], txt)
+#plt.show()
+
+import pytz
+
+#utc_dt = datetime.now().replace(tzinfo=pytz.UTC)
+
+utc_dt = datetime.now(pytz.utc)
+timezone = pytz.timezone('Asia/Novosibirsk')
+loc_dt = utc_dt.astimezone(timezone)
+print(utc_dt.strftime('%z'))
+print(loc_dt.strftime('%z'))
