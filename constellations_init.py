@@ -2,7 +2,7 @@ from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from astro import to_hours
+from converter import to_hours
 
 engine = create_engine('sqlite:///env/db/stars.db')
 Base = declarative_base()
@@ -121,7 +121,7 @@ session.add_all(stars)
 session.commit()
 session.close() """
 
-from astro.starmap import Viewpoint
+from starmap import Viewpoint
 
 view = Viewpoint(55, 37, datetime(2019, 2, 28, 19, 10), 3)
 print('UTC:', view.utc_datetime_now)
@@ -149,7 +149,7 @@ plt.scatter(ras, decs, marker='o', c='r', s=siz)
 for i, txt in enumerate(names):
     if txt != '':
         plt.text(ras[i], decs[i], txt)
-#plt.show()
+plt.show()
 
 import pytz
 

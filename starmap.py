@@ -1,7 +1,7 @@
 from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
 from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, or_, and_, MetaData
 from sqlalchemy.orm import sessionmaker, relationship
-from astro.converter import to_hours, equinox_datetime, utc_datetime, delta_to_degrees
+from converter import to_hours, equinox_datetime, utc_datetime, delta_to_degrees
 from datetime import datetime
 import math as m
 from flask import jsonify
@@ -90,7 +90,7 @@ class Viewpoint:
     def __init__(self, latitude, longitude, datetime_now: datetime, timezone):
         
         db = '/home/wwwroot/stars-api/flask-uwsgi/stars.db'
-        db2 = 'env/db/stars.db'
+        db2 = 'db/stars.db'
         self.__engine = create_engine(f'sqlite:///{db2}')
         self.__session = sessionmaker(bind=self.__engine)()
         self.latitude = latitude
