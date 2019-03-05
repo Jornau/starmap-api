@@ -97,8 +97,8 @@ for line in open('_stars/cons.csv'):
 
 session.add_all(cons)
 session.commit()
-
-_csv = open('_stars/hygdata_v3.csv','r')
+""" 
+"""_csv = open('_stars/hygdata_v3.csv','r')
 cons = session.query(Constellation).all()
 _csv.readline()
 stars = []
@@ -119,7 +119,8 @@ for line in _csv:
         stars.append(star)
 session.add_all(stars)
 session.commit()
-session.close() """
+session.close()
+"""
 
 from starmap import Viewpoint
 

@@ -134,10 +134,3 @@ class Viewpoint:
         self.__session.close()
         self.__engine.dispose()
     
-
-class CustomJSONEncoder(JSONEncoder):
-    def default(self, obj):# pylint: disable=E0202
-        if isinstance(obj.__class__, DeclarativeMeta):
-            return obj.__dict__
-        else:
-            return json.JSONEncoder.default(self, object)
