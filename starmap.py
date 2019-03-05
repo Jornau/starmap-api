@@ -1,5 +1,5 @@
 from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
-from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, or_, and_
+from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, or_, and_, MetaData
 from sqlalchemy.orm import sessionmaker, relationship
 from astro.converter import to_hours, equinox_datetime, utc_datetime, delta_to_degrees
 from datetime import datetime
@@ -7,54 +7,9 @@ import math as m
 from flask import jsonify
 from flask.json import JSONEncoder
 import json
+import os.path as p
 
 Base = declarative_base()
-
-class Viewpoint:
-    def __init__(self, latitude, longitude, datetime_now: datetime, timezone):
-        self.__engine = create_engine('sqlite:///env/db/stars.db')
-        self.__session = sessionmaker(bind=self.__engine)()
-        self.latitude = latitude
-        self.longitude = longitude
-        self.datetime_now = datetime_now
-        self.timezone = timezone
-        self.utc_datetime_now = utc_datetime(datetime_now, timezone)
-        self.start_point = equinox_datetime(self.utc_datetime_now)
-        self.delta_dt = self.utc_datetime_now - self.start_point
-        self.degrees_gone = delta_to_degrees(self.delta_dt, self.longitude)
-
-    def __repr__(self):
-        return "<Viewport('%d','%d')" % (self.latitude, self.longitude)
-
-    def visible_stars_now(self):
-        stars = []
-        for star in self.__session.query(Star).all():
-            alt, az = self.__az_at(star.ra, star.dec)
-            if alt > 0 and star.con != None:
-                star.alt = alt
-                star.az = az
-                stars.append(star)
-        self.close()
-        return stars
-
-    def __az_at(self, ra, dec):
-        _lat = m.radians(self.latitude)
-        _dec = m.radians(dec)
-        _ra = ra * 15
-        _ha = m.radians(self.degrees_gone - _ra)
-        alt = (m.sin(_dec)*m.sin(_lat) + m.cos(_dec)*m.cos(_lat)*m.cos(_ha))
-        az = ((m.sin(_dec) - alt*m.sin(_lat)) / (m.cos(m.asin(alt))*m.cos(_lat)))
-        alt = m.degrees(m.asin(alt))
-        if m.sin(_ha) < 0:
-            az = m.degrees(m.acos(az))
-        else:
-            az = 360 - m.degrees(m.acos(az))
-        return alt, az
-
-    def close(self):
-        self.__session.close()
-        self.__engine.dispose()
-    
 class Constellation(Base):
 
     __tablename__ = "Constellations"
@@ -129,6 +84,56 @@ class Star(Base):
         self.con = con
         self.var = var
         self.lum = lum
+
+class Viewpoint:
+    
+    def __init__(self, latitude, longitude, datetime_now: datetime, timezone):
+        
+        db = '/home/wwwroot/stars-api/flask-uwsgi/stars.db'
+        db2 = 'env/db/stars.db'
+        self.__engine = create_engine(f'sqlite:///{db2}')
+        self.__session = sessionmaker(bind=self.__engine)()
+        self.latitude = latitude
+        self.longitude = longitude
+        self.datetime_now = datetime_now
+        self.timezone = timezone
+        self.utc_datetime_now = utc_datetime(datetime_now, timezone)
+        self.start_point = equinox_datetime(self.utc_datetime_now)
+        self.delta_dt = self.utc_datetime_now - self.start_point
+        self.degrees_gone = delta_to_degrees(self.delta_dt, self.longitude)
+
+    def __repr__(self):
+        return "<Viewport('%d','%d')" % (self.latitude, self.longitude)
+
+    def visible_stars_now(self):
+        stars = []
+        for star in self.__session.query(Star).all():
+            alt, az = self.__az_at(star.ra, star.dec)
+            if alt > 0 and star.con != None:
+                star.alt = alt
+                star.az = az
+                stars.append(star)
+        self.close()
+        return stars
+
+    def __az_at(self, ra, dec):
+        _lat = m.radians(self.latitude)
+        _dec = m.radians(dec)
+        _ra = ra * 15
+        _ha = m.radians(self.degrees_gone - _ra)
+        alt = (m.sin(_dec)*m.sin(_lat) + m.cos(_dec)*m.cos(_lat)*m.cos(_ha))
+        az = ((m.sin(_dec) - alt*m.sin(_lat)) / (m.cos(m.asin(alt))*m.cos(_lat)))
+        alt = m.degrees(m.asin(alt))
+        if m.sin(_ha) < 0:
+            az = m.degrees(m.acos(az))
+        else:
+            az = 360 - m.degrees(m.acos(az))
+        return alt, az
+
+    def close(self):
+        self.__session.close()
+        self.__engine.dispose()
+    
 
 class CustomJSONEncoder(JSONEncoder):
     def default(self, obj):# pylint: disable=E0202
