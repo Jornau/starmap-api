@@ -1,0 +1,15 @@
+Metadata-Version: 1.1
+Name: pyalice
+Version: 0.2
+Summary: Yandex.Dialogs non-official package.
+Home-page: https://github.com/Jornau/alice
+Author: Alexander Surkov
+Author-email: jornau@yandex.ru
+License: MIT
+Description: Processing requests and sending responses for Yandex.Dialogs API.
+Keywords: yandex dialogs alice skills
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
