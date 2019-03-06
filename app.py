@@ -22,7 +22,8 @@ def main():
     db.close()
 
     if 'созвезди' in req.request.command:
-        user_geo = [x for x in req.request.nlu.entities if x.type == 'YANDEX.GEO']
+
+        user_geo = req.get_entities(pyalice.YA_GEO)
         if len(user_geo) > 0 and user_geo[0].value.city != None:
             try:
                 n_geo = geo.Geo(user_geo[0].value.city)
@@ -34,45 +35,19 @@ def main():
             cur_user.lon = n_geo.lon
         if cur_user.timezone == None:
             return 'УКАЖИТЕ МЕСТО НАБЛЮДЕНИЯ!'
-        user_datetime = [x for x in req.request.nlu.entities if x.type == 'YANDEX.DATETIME']
 
+        user_datetime = req.get_entities(pyalice.YA_DT)
         if len(user_datetime) > 0:
-            dt_loc, offset = build_datetime(cur_user.timezone, user_datetime[0].value)
-        else:
-            dt_loc, offset = build_datetime(cur_user.timezone)
-        
-        cons = get_constellation(cur_user.lat, cur_user.lon, dt_loc, offset, 5)
+            dt_loc, offset = user_datetime[0].get_datetime(cur_user.timezone)
+        tz = pytz.timezone(cur_user.timezone)
+        dt_loc = datetime.now(tz)
+        cons = get_constellation(cur_user.lat, cur_user.lon, dt_loc, 10)
         r = str.join('\n', cons)
         return f'{r}'
 
 
     return cur_user.timezone
 
-def build_datetime(tz, a_dt = None):
-    dt_utc = datetime.utcnow()
-    timezone = pytz.timezone(tz)
-    dt = dt_utc.astimezone(timezone)
-    if a_dt != None:
-        year = convert_date(dt.year, a_dt.year, a_dt.year_is_relative)
-        month = convert_date(dt.month, a_dt.month, a_dt.month_is_relative)
-        day = convert_date(dt.day, a_dt.day, a_dt.day_is_relative)
-        hour = convert_date(0, a_dt.hour, a_dt.hour_is_relative)
-        minute = convert_date(0, a_dt.minute, a_dt.minute_is_relative)
-        dt_user = datetime(year, month, day, hour, minute)
-    else:
-        dt_user = dt.replace(hour=23)
-
-    offset_delta = timezone.utcoffset(dt_utc)
-    offset = int(offset_delta.total_seconds() / 3600)
-    return dt_user, offset
-
-def convert_date(cur, val, relative):
-    if relative == None:
-        return cur
-    elif relative == False:
-        return val
-    else:
-        return cur #+ val
 
 def constellations_card(phrase, cons, cur_user, dt_loc):    
     text = f'{phrase} в зените следующие созвездия:\n{str.join(", ", cons)}'
@@ -88,9 +63,9 @@ def constellations_card(phrase, cons, cur_user, dt_loc):
     r = pyalice.Response(text, text, buttons=[btn])
     return r
 
-def get_constellation(latitude, longitude, dt, timezone, lim):
-    view = Viewpoint(latitude, longitude, dt, timezone)
-    return list(set([x.con_ent.name_rus for x in view.visible_stars_now() if x.alt > 60]))[:lim]
+def get_constellation(latitude, longitude, dt, lim):
+    view = Viewpoint(latitude, longitude, dt)
+    return list(set([x.con_ent.name_rus for x in view.visible_cons_now(60)]))[:lim]
 
 if __name__ == '__main__':
     app.run()

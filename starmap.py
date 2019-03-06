@@ -101,15 +101,15 @@ class User(Base):
 
 class Viewpoint(object):
     
-    def __init__(self, latitude, longitude, datetime_now: datetime, timezone):
+    def __init__(self, latitude, longitude, datetime_now: datetime):
         
         self.__engine = create_engine(DB_CON)
         self.__session = sessionmaker(bind=self.__engine)()
         self.latitude = latitude
         self.longitude = longitude
         self.datetime_now = datetime_now
-        self.timezone = timezone
-        self.utc_datetime_now = utc_datetime(datetime_now, timezone)
+        self.timezone = datetime_now.utcoffset().total_seconds() / 3600
+        self.utc_datetime_now = utc_datetime(datetime_now.replace(tzinfo=None), self.timezone)
         self.start_point = equinox_datetime(self.utc_datetime_now)
         self.delta_dt = self.utc_datetime_now - self.start_point
         self.degrees_gone = delta_to_degrees(self.delta_dt, self.longitude)
@@ -117,11 +117,11 @@ class Viewpoint(object):
     def __repr__(self):
         return "<Viewport('%d','%d')" % (self.latitude, self.longitude)
 
-    def visible_stars_now(self):
+    def visible_cons_now(self, min_):
         stars = []
         for star in self.__session.query(Star).all():
             alt, az = self.__az_at(star.ra, star.dec)
-            if alt > 0 and star.con != None:
+            if alt > min_ and star.con != None:
                 star.alt = alt
                 star.az = az
                 stars.append(star)
