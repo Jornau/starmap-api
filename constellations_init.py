@@ -1,11 +1,24 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, update
+from sqlalchemy import create_engine, Column, Integer, DateTime, String, Float, ForeignKey, update
 from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timedelta
 from converter import to_hours
 
-engine = create_engine('sqlite:///env/db/stars.db')
+engine = create_engine('sqlite:///db/stars.db')
 Base = declarative_base()
+
+class User(Base):
+    __tablename__ = "Users"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String(128), unique=True)
+    city = Column(String(50), nullable=True)
+    lat = Column(Float, nullable=True)
+    lon = Column(Float, nullable=True)
+    gmt = Column(Integer, nullable=True)
+    dst = Column(Integer, nullable=True)
+    timezone = Column(String(50), nullable=True)
+
 
 class Constellation(Base):
 
@@ -82,14 +95,22 @@ class Star(Base):
         self.var = var
         self.lum = lum
 
-#Base.metadata.create_all(engine)
+Base.metadata.create_all(engine)
 
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import func
 
-""" Session = sessionmaker(bind=engine)
+Session = sessionmaker(bind=engine)
 session = Session()
-cons = []
+print(session.query(User).count())
+#User.__table__.create(session.bind)
+
+import geo
+
+g = geo.Geo('Мексика')
+print(g.timezone, g.lat, g.lon, g.gmt, g.dst)
+
+""" cons = []
 for line in open('_stars/cons.csv'):
     obj = obj = line.strip().split(';')
     con = Constellation(obj[1], obj[0], obj[2], obj[3], obj[4])
@@ -97,7 +118,7 @@ for line in open('_stars/cons.csv'):
 
 session.add_all(cons)
 session.commit()
-""" 
+ """
 """_csv = open('_stars/hygdata_v3.csv','r')
 cons = session.query(Constellation).all()
 _csv.readline()
@@ -122,7 +143,9 @@ session.commit()
 session.close()
 """
 
-from starmap import Viewpoint
+
+
+""" from starmap import Viewpoint
 
 view = Viewpoint(55, 37, datetime(2019, 2, 28, 19, 10), 3)
 print('UTC:', view.utc_datetime_now)
@@ -150,14 +173,15 @@ plt.scatter(ras, decs, marker='o', c='r', s=siz)
 for i, txt in enumerate(names):
     if txt != '':
         plt.text(ras[i], decs[i], txt)
-plt.show()
+plt.show() """
 
 import pytz
 
 #utc_dt = datetime.now().replace(tzinfo=pytz.UTC)
 
-utc_dt = datetime.now(pytz.utc)
-timezone = pytz.timezone('Asia/Novosibirsk')
-loc_dt = utc_dt.astimezone(timezone)
-print(utc_dt.strftime('%z'))
-print(loc_dt.strftime('%z'))
+utc_dt = datetime.utcnow()
+utc_dt += timedelta(days=50)
+timezone = pytz.timezone('Europe/Moscow')
+loc_dt = timezone.utcoffset(utc_dt)
+print(utc_dt)
+print(int(loc_dt.total_seconds() / 3600))

@@ -10,6 +10,8 @@ import json
 import os.path as p
 
 Base = declarative_base()
+
+DB_CON = 'sqlite:///db/stars.db'
 class Constellation(Base):
 
     __tablename__ = "Constellations"
@@ -85,13 +87,23 @@ class Star(Base):
         self.var = var
         self.lum = lum
 
-class Viewpoint:
+class User(Base):
+    __tablename__ = "Users"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String(128), unique=True)
+    city = Column(String(50), nullable=True)
+    lat = Column(Float, nullable=True)
+    lon = Column(Float, nullable=True)
+    gmt = Column(Integer, nullable=True)
+    dst = Column(Integer, nullable=True)
+    timezone = Column(String(50), nullable=True)
+
+class Viewpoint(object):
     
     def __init__(self, latitude, longitude, datetime_now: datetime, timezone):
         
-        db = '/home/wwwroot/stars-api/flask-uwsgi/stars.db'
-        db2 = 'db/stars.db'
-        self.__engine = create_engine(f'sqlite:///{db2}')
+        self.__engine = create_engine(DB_CON)
         self.__session = sessionmaker(bind=self.__engine)()
         self.latitude = latitude
         self.longitude = longitude
@@ -134,3 +146,20 @@ class Viewpoint:
         self.__session.close()
         self.__engine.dispose()
     
+class DB(object):
+    def __init__(self):
+        self.__engine = create_engine(DB_CON)
+        self.__session = sessionmaker(bind=self.__engine)()
+
+    def get_user(self, user_id):
+        return self.__session.query(User).filter(User.user_id == user_id).first()
+
+    def add_user(self, user_id):
+        user = User(user_id = user_id)
+        self.__session.add(user)
+        self.__session.commit()
+        return user
+
+    def close(self):
+        self.__session.close()
+        self.__engine.dispose()
