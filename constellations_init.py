@@ -102,13 +102,13 @@ from sqlalchemy import func
 
 Session = sessionmaker(bind=engine)
 session = Session()
-print(session.query(User).count())
 #User.__table__.create(session.bind)
+from starmap import DB
+db = DB()
 
-import geo
-
-g = geo.Geo('Мексика')
-print(g.timezone, g.lat, g.lon, g.gmt, g.dst)
+u = session.query(User).filter(User.user_id == 'alsur6d').count()
+print(u)
+db.close()
 
 """ cons = []
 for line in open('_stars/cons.csv'):
@@ -185,3 +185,4 @@ timezone = pytz.timezone('Europe/Moscow')
 loc_dt = timezone.utcoffset(utc_dt)
 print(utc_dt)
 print(int(loc_dt.total_seconds() / 3600))
+

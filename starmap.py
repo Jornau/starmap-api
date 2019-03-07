@@ -119,12 +119,12 @@ class Viewpoint(object):
 
     def visible_cons_now(self, min_):
         stars = []
-        for star in self.__session.query(Star).all():
+        for star in self.__session.query(Star).filter(Star.con != None).all():
             alt, az = self.__az_at(star.ra, star.dec)
-            if alt > min_ and star.con != None:
+            if star.con != None and star.con_ent.name_rus not in stars and alt > min_:
                 star.alt = alt
                 star.az = az
-                stars.append(star)
+                stars.append(star.con_ent.name_rus)
         self.close()
         return stars
 
@@ -154,11 +154,18 @@ class DB(object):
     def get_user(self, user_id):
         return self.__session.query(User).filter(User.user_id == user_id).first()
 
+    def get_geo(self, city):
+        return self.__session.query(User).filter(User.city == city).first()
+
     def add_user(self, user_id):
         user = User(user_id = user_id)
         self.__session.add(user)
         self.__session.commit()
         return user
+
+    def update_user(self, user):
+        self.__session.add(user)
+        self.__session.commit()
 
     def close(self):
         self.__session.close()

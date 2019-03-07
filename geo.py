@@ -6,6 +6,7 @@ class Geo(object):
 
     def __init__(self, city):
         res = r.get(f'http://api.geonames.org/searchJSON?name_equals={city}&username=Jornau&style=full')
+        self.status = res.status_code
         if (res.status_code != 200):
             raise Exception('Failed to get geo information.')
 

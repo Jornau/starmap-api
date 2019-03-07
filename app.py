@@ -2,7 +2,7 @@ from __future__ import unicode_literals
 from flask import Flask, jsonify, request
 from starmap import Viewpoint, User, DB
 from datetime import datetime
-import geo, pytz, pyalice, json
+import geo, pytz, pyalice, json, random
 
 TOKEN = 'AQAAAAAntjk7AAT7o_0zkdk7VEsqtM2-PfkNR44'
 ID = '556d8e12-1127-4c16-9fe1-bc4c9bd61df1'
@@ -19,53 +19,178 @@ def main():
     cur_user = db.get_user(user_id)
     if cur_user == None:
         cur_user = db.add_user(user_id)
-    db.close()
 
-    if 'созвезди' in req.request.command:
+    cmd = req.request.command.lower()
+
+    if 'созвезди' in cmd:
 
         user_geo = req.get_entities(pyalice.YA_GEO)
         if len(user_geo) > 0 and user_geo[0].value.city != None:
-            try:
-                n_geo = geo.Geo(user_geo[0].value.city)
-            except:
-                return 'НЕ ПОЛУЧИЛОСЬ ОПРЕДЕЛИТЬ МЕСТОПОЛОЖЕНИЕ!'
+            n_geo = db.get_geo(user_geo[0].value.city)
+            if n_geo == None:
+                try:
+                    n_geo = geo.Geo(user_geo[0].value.city)
+                except:
+                    if n_geo.status != 200:
+                        res.response = tech_problems()
+                    else:
+                        res.response = ask_loc_again(user_geo[0].value.city)
+                    return res.build_json()
+                finally:
+                    db.close()
             cur_user.timezone = n_geo.timezone
             cur_user.city = n_geo.city
             cur_user.lat = n_geo.lat
             cur_user.lon = n_geo.lon
         if cur_user.timezone == None:
-            return 'УКАЖИТЕ МЕСТО НАБЛЮДЕНИЯ!'
+            res.response = ask_location()
+            return res.build_json()
+        db.close()
 
         user_datetime = req.get_entities(pyalice.YA_DT)
         if len(user_datetime) > 0:
             dt_loc, offset = user_datetime[0].get_datetime(cur_user.timezone)
-        tz = pytz.timezone(cur_user.timezone)
-        dt_loc = datetime.now(tz)
-        cons = get_constellation(cur_user.lat, cur_user.lon, dt_loc, 10)
-        r = str.join('\n', cons)
-        return f'{r}'
 
+        lim = 5 if 'screen' in req.meta.interfaces else 7
+        cons = get_constellation(cur_user.lat, cur_user.lon, dt_loc, lim)
+        res.response = constellations_card(cons, cur_user, dt_loc)
+        return res.build_json()
+
+    if 'показать все' in cmd:
+        data = req.request.payload
+        cur_user.lat = data['lat']
+        cur_user.lon = data['lon']
+        dt_loc = datetime.strptime(data['dt_loc'], '%Y-%m-%d %H:%M:%S.%f%z') #2019-03-07 01:25:40.805813+03:00
+        lim = data['lim']
+        cons = get_constellation(cur_user.lat, cur_user.lon, dt_loc, lim)
+        res.response = constellations_card(cons, cur_user, dt_loc, True)
+        return res.build_json()
+
+    if 'задать место' in cmd:
+        user_geo = req.get_entities(pyalice.YA_GEO)
+        if len(user_geo) > 0 and user_geo[0].value.city != None:
+            city = user_geo[0].value.city
+            n_geo = db.get_geo(city)
+            if n_geo == None:
+                try:
+                    n_geo = geo.Geo(city)
+                except:
+                    if n_geo.status != 200:
+                        res.response = tech_problems()
+                    else:
+                        res.response = ask_loc_again(city)
+                    return res.build_json()
+                finally:
+                    db.close()
+        else:
+            res.response = ask_location()
+            return res.build_json()
+
+        cur_user.timezone = n_geo.timezone
+        cur_user.city = n_geo.city
+        cur_user.lat = n_geo.lat
+        cur_user.lon = n_geo.lon
+        db.update_user(cur_user)
+        db.close()
+        res.response = confirm_location(city)        
+        return res.build_json()
+    db.close()
+
+    if 'справка' in cmd:
+        res.response = no_dialogs()
+        return res.build_json()
+
+    if req.session.new == True:
+        res.response = greeting(cur_user)
+        return res.build_json()
 
     return cur_user.timezone
 
 
-def constellations_card(phrase, cons, cur_user, dt_loc):    
-    text = f'{phrase} в зените следующие созвездия:\n{str.join(", ", cons)}'
-    
+def constellations_card(cons, cur_user, dt_loc, fl = False):    
+    ldt = f'{cur_user.city}. {dt_loc.strftime("%d")} {months[dt_loc.month - 1]} {dt_loc.strftime("%H:%M")}.'
+    if len(cons) > 7:
+        cons = str.join(", ", cons)
+    else:
+        cons = str.join("\n", cons)
+    if fl == False:
+        tts = text = f'{ldt} Созвездия в зените:\n{cons}'
+    else:
+        tts = text = f'{ldt} Полный список созвездий:\n{cons}'
     pl = {
         'lat': cur_user.lat,
         'lon': cur_user.lon,
         'dt_loc': f'{dt_loc}',
-        'offset': cur_user.offset,
         'lim': 100,
     }
-    btn = pyalice.TipButton('Полный список', None, pl, True)
-    r = pyalice.Response(text, text, buttons=[btn])
+    r = pyalice.Response(text, tts)
+    if fl == False:
+        r.add_tip_button('Полный список', None, pl, True)
     return r
 
 def get_constellation(latitude, longitude, dt, lim):
     view = Viewpoint(latitude, longitude, dt)
-    return list(set([x.con_ent.name_rus for x in view.visible_cons_now(60)]))[:lim]
+    return view.visible_cons_now(65)[:lim]
+
+def greeting(cur_user):
+    text = 'Привет! Я Астроном. Зная дату, время и местоположение, я подскажу какие созвездия можно увидеть. В запросе используйте слово "Созвездия".' +\
+        '\n\nПроизнесите команду «Задать местоположение» и назовите населенный пункт. Он будет использоваться по-умолчанию.'+\
+        '\n\nДля помощи скажите «Справка»'
+    tts = 'Привет! Я Астроном. Зная дату, время и местоположение, я подскажу какие созвездия можно увидеть. В запросе используйте слово "Созвездия".' +\
+        '\n\n- - - Произнесите команду «Задать местоположение» и назовите населенный пункт. Он будет использоваться по-умолчанию.'+\
+        '\n\n- - - Для помощи скажите «Справка»'
+
+    text_known = ['Рад, что Вы вернулись.', 'Здравствуйте!', 'Готов начать поиск созвездий.']
+    text_known = random.choice(text_known)
+    if cur_user.city != None:
+        tts = text = f'{text_known} Сохраненное местоположение - {cur_user.city}.'
+    else:
+        tts = text = f'{text_known} Произнесите команду «Задать местоположение» и назовите населенный пункт.'
+    r = pyalice.Response(tts=tts).add_image_card('1540737/024430afeff32cf0bbd8', description=text)
+    if cur_user.city != None:
+        r.add_tip_button('Созвездия сегодня', hide=True)
+    r.add_tip_button('Справка', hide=True)
+    return r
+
+def no_dialogs():
+    chs = ['Такого я не предвидел.', 'Видимо, мы друг друга не поняли.', 'Я просто засмотрелся на звезды.']
+    chs = random.choice(chs)
+    text = f'{chs} Скажите «Справка», если нужна помощь.'
+    return pyalice.Response(text, text).add_tip_button('Справка', True)
+
+def ask_location():
+    text = 'Произнесите команду «Задать местоположение» и назовите населенный пункт.'
+    return pyalice.Response(text, text).add_tip_button('Созвездия в Москве', hide=True).add_tip_button('Созвездия в Париже', hide=True)
+
+def tech_problems():
+    text = 'К сожалению, наш сервис геолокации недоступен. Попробуйте выполнить запрос позднее.'
+    return pyalice.Response(text, text)
+
+def ask_loc_again(city):
+    text = f'Не удается найти {city}. Если название корректно, попробуйте выбрать другой населенный пункт.'
+    return pyalice.Response(text, text)
+
+def confirm_location(city):
+    text = f'Местоположение - {city} успешно сохранено.'
+    return pyalice.Response(text, text).add_tip_button('Созвездия сегодня', True).add_tip_button('Справка', hide=True)
+
+months = [
+    'января',
+    'февраля',
+    'марта',
+    'апреля',
+    'мая',
+    'июня',
+    'июля',
+    'августа',
+    'сентября',
+    'октября',
+    'ноября',
+    'декабря'
+]
 
 if __name__ == '__main__':
+    m = pyalice.ImageManager(TOKEN, ID)
+    im = m.image_from_file('C:/VSprojects/Startups/Stars/_stars/logo.jpg')
+    print(im.id)
     app.run()
