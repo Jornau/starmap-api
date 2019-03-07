@@ -103,12 +103,7 @@ from sqlalchemy import func
 Session = sessionmaker(bind=engine)
 session = Session()
 #User.__table__.create(session.bind)
-from starmap import DB
-db = DB()
 
-u = session.query(User).filter(User.user_id == 'alsur6d').count()
-print(u)
-db.close()
 
 """ cons = []
 for line in open('_stars/cons.csv'):

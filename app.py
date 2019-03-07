@@ -53,7 +53,10 @@ def main():
         user_datetime = req.get_entities(pyalice.YA_DT)
         if len(user_datetime) > 0:
             dt_loc, offset = user_datetime[0].get_datetime(cur_user.timezone)
-
+        else:
+            tzone = pytz.timezone(cur_user.timezone)
+            dt_loc = datetime.now(tzone)
+            dt_loc = dt_loc.replace(hour=23, minute=00)
         lim = 5 if 'screen' in req.meta.interfaces else 7
         cons = get_constellation(cur_user.lat, cur_user.lon, dt_loc, lim)
         res.response = constellations_card(cons, cur_user, dt_loc)
@@ -61,6 +64,10 @@ def main():
 
     if 'показать все' in cmd:
         data = req.request.payload
+        if data == None:
+            db.close()
+            res.response = pyalice.Response('Данная функция доступна только по нажатию кнопки.')
+            return res
         cur_user.lat = data['lat']
         cur_user.lon = data['lon']
         dt_loc = datetime.strptime(data['dt_loc'], '%Y-%m-%d %H:%M:%S.%f%z') #2019-03-07 01:25:40.805813+03:00
@@ -115,7 +122,7 @@ def main():
 
 
 def constellations_card(cons, cur_user, dt_loc, fl = False):    
-    ldt = f'{cur_user.city}. {dt_loc.strftime("%d")} {months[dt_loc.month - 1]} {dt_loc.strftime("%H:%M")}.'
+    ldt = f'{cur_user.city.title()}. {dt_loc.strftime("%d")} {months[dt_loc.month - 1]} {dt_loc.strftime("%H:%M")}.'
     if len(cons) > 7:
         cons = str.join(", ", cons)
     else:
@@ -123,14 +130,14 @@ def constellations_card(cons, cur_user, dt_loc, fl = False):
     if fl == False:
         tts = text = f'{ldt} Созвездия в зените:\n{cons}'
     else:
-        tts = text = f'{ldt} Сейчас будет жарко. Полный список созвездий:\n{cons}'
+        tts = text = f'{ldt} Полный список созвездий:\n{cons}'
     pl = {
         'lat': cur_user.lat,
         'lon': cur_user.lon,
         'dt_loc': f'{dt_loc}',
         'lim': 100,
     }
-    r = pyalice.Response(text, tts)
+    r = pyalice.Response(text + '\n\n*Время соответствует заданому местоположению.', tts)
     if fl == False:
         r.add_tip_button('Полный список', None, pl, True)
     return r
@@ -145,6 +152,8 @@ def greeting(cur_user, known = False):
     text = 'Привет! Я Астроном. Зная дату, время и местоположение, я подскажу какие созвездия можно увидеть. В запросе используйте слово "Созвездия".' +\
         '\n\nПроизнесите команду «Задать местоположение» и назовите населенный пункт. Он будет использоваться по-умолчанию.'+\
         '\n\nДля помощи скажите «Справка»'
+    desc = 'Привет! Я Астроном. Зная дату, время и местоположение, я подскажу какие созвездия можно увидеть. В запросе используйте слово "Созвездия".' +\
+        '\n\nПроизнесите команду «Задать местоположение» и назовите населенный пункт. Он будет использоваться по-умолчанию.'
     tts = 'Привет! Я Астроном. Зная дату, время и местоположение, я подскажу какие созвездия можно увидеть. В запросе используйте слово "Созвездия".' +\
         '- - - Произнесите команду «Задать местоположение» и назовите населенный пункт. Он будет использоваться по-умолчанию.'+\
         '- - - Для помощи скажите «Справка»'
@@ -155,7 +164,7 @@ def greeting(cur_user, known = False):
         text = f'{text_known} Сохраненное местоположение - {cur_user.city}.'
     elif known == True and cur_user.city == None:
         tts = text = f'{text_known} Произнесите команду «Задать местоположение» и назовите населенный пункт.'
-    r = pyalice.Response(text,tts).add_image_card('1540737/024430afeff32cf0bbd8', description=text)
+    r = pyalice.Response(text,tts).add_image_card('1540737/024430afeff32cf0bbd8', description=desc)
     if cur_user.city != None:
         r.add_tip_button('Созвездия сегодня', hide=True)
     r.add_tip_button('Справка', hide=True)
@@ -165,7 +174,7 @@ def no_dialogs():
     chs = ['Такого я не предвидел.', 'Видимо, мы друг друга не поняли.', 'Я просто засмотрелся на звезды.']
     chs = random.choice(chs)
     text = f'{chs} Скажите «Справка», если нужна помощь.'
-    return pyalice.Response(text, text).add_tip_button('Справка', True)
+    return pyalice.Response(text, text).add_tip_button('Справка', hide=True)
 
 def ask_location():
     text = 'Произнесите команду «Задать местоположение» и назовите населенный пункт.'
@@ -180,8 +189,8 @@ def ask_loc_again(city):
     return pyalice.Response(text, text)
 
 def confirm_location(city):
-    text = f'Местоположение - {city} успешно сохранено.'
-    return pyalice.Response(text, text).add_tip_button('Созвездия сегодня', True).add_tip_button('Справка', hide=True)
+    text = f'Местоположение {city.title()} успешно сохранено.'
+    return pyalice.Response(text, text).add_tip_button('Созвездия сегодня', hide=True).add_tip_button('Справка', hide=True)
 
 def help():
     text = 'Поисковая фраза должна содержать слово «Созвездия».\n'+\
@@ -213,7 +222,4 @@ months = [
 ]
 
 if __name__ == '__main__':
-    m = pyalice.ImageManager(TOKEN, ID)
-    im = m.image_from_file('C:/VSprojects/Startups/Stars/_stars/logo.jpg')
-    print(im.id)
     app.run()
