@@ -17,8 +17,11 @@ def main():
 
     db = DB()
     cur_user = db.get_user(user_id)
+    known = True
     if cur_user == None:
         cur_user = db.add_user(user_id)
+        known = False
+
 
     cmd = req.request.command.lower()
 
@@ -64,6 +67,7 @@ def main():
         lim = data['lim']
         cons = get_constellation(cur_user.lat, cur_user.lon, dt_loc, lim)
         res.response = constellations_card(cons, cur_user, dt_loc, True)
+        db.close()
         return res.build_json()
 
     if 'задать место' in cmd:
@@ -94,17 +98,20 @@ def main():
         db.close()
         res.response = confirm_location(city)        
         return res.build_json()
-    db.close()
 
     if 'справка' in cmd:
-        res.response = no_dialogs()
+        res.response = help()
+        db.close()
         return res.build_json()
 
     if req.session.new == True:
-        res.response = greeting(cur_user)
+        res.response = greeting(cur_user, known)
+        db.close()
         return res.build_json()
-
-    return cur_user.timezone
+    
+    db.close()
+    res.response = no_dialogs()
+    return res.build_json()
 
 
 def constellations_card(cons, cur_user, dt_loc, fl = False):    
@@ -116,7 +123,7 @@ def constellations_card(cons, cur_user, dt_loc, fl = False):
     if fl == False:
         tts = text = f'{ldt} Созвездия в зените:\n{cons}'
     else:
-        tts = text = f'{ldt} Полный список созвездий:\n{cons}'
+        tts = text = f'{ldt} Сейчас будет жарко. Полный список созвездий:\n{cons}'
     pl = {
         'lat': cur_user.lat,
         'lon': cur_user.lon,
@@ -130,23 +137,25 @@ def constellations_card(cons, cur_user, dt_loc, fl = False):
 
 def get_constellation(latitude, longitude, dt, lim):
     view = Viewpoint(latitude, longitude, dt)
+    if lim > 7:
+        return view.visible_cons_now(0)[:lim]
     return view.visible_cons_now(65)[:lim]
 
-def greeting(cur_user):
+def greeting(cur_user, known = False):
     text = 'Привет! Я Астроном. Зная дату, время и местоположение, я подскажу какие созвездия можно увидеть. В запросе используйте слово "Созвездия".' +\
         '\n\nПроизнесите команду «Задать местоположение» и назовите населенный пункт. Он будет использоваться по-умолчанию.'+\
         '\n\nДля помощи скажите «Справка»'
     tts = 'Привет! Я Астроном. Зная дату, время и местоположение, я подскажу какие созвездия можно увидеть. В запросе используйте слово "Созвездия".' +\
-        '\n\n- - - Произнесите команду «Задать местоположение» и назовите населенный пункт. Он будет использоваться по-умолчанию.'+\
-        '\n\n- - - Для помощи скажите «Справка»'
+        '- - - Произнесите команду «Задать местоположение» и назовите населенный пункт. Он будет использоваться по-умолчанию.'+\
+        '- - - Для помощи скажите «Справка»'
 
     text_known = ['Рад, что Вы вернулись.', 'Здравствуйте!', 'Готов начать поиск созвездий.']
     text_known = random.choice(text_known)
-    if cur_user.city != None:
-        tts = text = f'{text_known} Сохраненное местоположение - {cur_user.city}.'
-    else:
+    if known == True and cur_user.city != None:
+        text = f'{text_known} Сохраненное местоположение - {cur_user.city}.'
+    elif known == True and cur_user.city == None:
         tts = text = f'{text_known} Произнесите команду «Задать местоположение» и назовите населенный пункт.'
-    r = pyalice.Response(tts=tts).add_image_card('1540737/024430afeff32cf0bbd8', description=text)
+    r = pyalice.Response(text,tts).add_image_card('1540737/024430afeff32cf0bbd8', description=text)
     if cur_user.city != None:
         r.add_tip_button('Созвездия сегодня', hide=True)
     r.add_tip_button('Справка', hide=True)
@@ -173,6 +182,20 @@ def ask_loc_again(city):
 def confirm_location(city):
     text = f'Местоположение - {city} успешно сохранено.'
     return pyalice.Response(text, text).add_tip_button('Созвездия сегодня', True).add_tip_button('Справка', hide=True)
+
+def help():
+    text = 'Поисковая фраза должна содержать слово «Созвездия».\n'+\
+        'Чтобы задать или изменить место наблюдения, произнесите «Задать местоположение» и назовите населенный пункт.\n'+\
+            'Можно указывать место наблюдения прямо в запросе. В таком случае оно не будет сохранено и не заменит место по-умолчанию.\n'+\
+                'При отсутствии даты и времени, будут запрошены созвездия на текущую дату в 23:00.'+\
+                    'При отсутствии времени - на выбранную дату, тоже в 23:00.'
+    tts = 'Поисковая фраза должна содержать слово «Созвездия».'+\
+        '- - - Чтобы задать или изменить место наблюдения, произнесите «Задать местоположение» и назовите населенный пункт.'+\
+            '- - - Можно указывать место наблюдения прямо в запросе. В таком случае оно не будет сохранено и не заменит место по-умолчанию.'+\
+                '- - - При отсутствии даты и времени, будут запрошены созвездия на текущую дату в 23:00.'+\
+                    'При отсутствии времени - на выбранную дату, тоже в 23:00.'
+    
+    return pyalice.Response(text, tts)
 
 months = [
     'января',
