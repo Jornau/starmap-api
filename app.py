@@ -1,5 +1,5 @@
 from __future__ import unicode_literals
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, abort
 from starmap import Viewpoint, User, DB
 from datetime import datetime
 import geo, pytz, pyalice, json, random
@@ -8,14 +8,22 @@ TOKEN = 'AQAAAAAntjk7AAT7o_0zkdk7VEsqtM2-PfkNR44'
 ID = '556d8e12-1127-4c16-9fe1-bc4c9bd61df1'
 
 app = Flask(__name__)
+db = DB()
 
 @app.route('/api', methods=['POST'])
 def main():
-    req = pyalice.In(request.json)
+    try:
+        dialog(pyalice.In(request.json))
+    except:
+        return abort(500)
+    finally:
+        db.close()
+    
+
+def dialog(req):
     res = pyalice.Out(req)
     user_id = req.session.user_id
-
-    db = DB()
+    
     cur_user = db.get_user(user_id)
     known = True
     if cur_user == None:
@@ -36,13 +44,11 @@ def main():
                         res.response = tech_problems()
                     else:
                         res.response = ask_loc_again(user_geo[0].value.city)
-                        db.close()
                     return res.build_json() 
             cur_user = set_user_attr(cur_user, n_geo)                   
         if cur_user.timezone == None:
             n_geo = db.get_geo_rand()
             cur_user = set_user_attr(cur_user, n_geo)
-        db.close()
 
         user_datetime = req.get_entities(pyalice.YA_DT)
         if len(user_datetime) > 0:
@@ -59,7 +65,6 @@ def main():
     if 'показать все' in cmd:
         data = req.request.payload
         if data == None:
-            db.close()
             res.response = pyalice.Response('Данная функция доступна только по нажатию кнопки.')
             return res
         cur_user.lat = data['lat']
@@ -68,7 +73,6 @@ def main():
         lim = data['lim']
         cons = get_constellation(cur_user.lat, cur_user.lon, dt_loc, lim)
         res.response = constellations_card(cons, cur_user, dt_loc, True)
-        db.close()
         return res.build_json()
 
     if 'задать место' in cmd:
@@ -85,8 +89,6 @@ def main():
                     else:
                         res.response = ask_loc_again(city)
                     return res.build_json()
-                finally:
-                    db.close()
         else:
             res.response = ask_location()
             return res.build_json()
@@ -96,25 +98,19 @@ def main():
         cur_user.lat = n_geo.lat
         cur_user.lon = n_geo.lon
         db.update_user(cur_user)
-        db.close()
         res.response = confirm_location(city)        
         return res.build_json()
 
     if 'справка' or 'помощь' or 'что ты умеешь' in cmd:
         res.response = help()
-        db.close()
         return res.build_json()
 
     if req.session.new == True:
         res.response = greeting(cur_user, known)
-        db.close()
         return res.build_json()
     
-    db.close()
     res.response = no_dialogs()
     return res.build_json()
-
-def dialog()
 
 def set_user_attr(cur_user, n_geo):
     cur_user.timezone = n_geo.timezone
@@ -180,7 +176,7 @@ def ask_location():
     return pyalice.Response(text, text).add_tip_button('Созвездия в Москве', hide=True).add_tip_button('Созвездия в Париже', hide=True)
 
 def tech_problems():
-    text = 'К сожалению, наш сервис геолокации недоступен. Попробуйте выполнить запрос позднее.'
+    text = 'Произошла ошибка на сервере. Попробуйте выполнить запрос позднее.'
     return pyalice.Response(text, text)
 
 def ask_loc_again(city):
