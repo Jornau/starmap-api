@@ -1,7 +1,7 @@
 from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
-from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, or_, and_, MetaData
+from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, or_, and_, MetaData, func
 from sqlalchemy.orm import sessionmaker, relationship
-from converter import to_hours, equinox_datetime, utc_datetime, delta_to_degrees
+from converter import to_hours, equinox_datetime, utc_datetime, delta_to_degrees, ra_dec_to_az_alt
 from datetime import datetime
 import math as m
 from flask import jsonify
@@ -11,7 +11,7 @@ import os.path as p
 
 Base = declarative_base()
 
-DB_CON = 'sqlite:////home/jornau/stars/starmap-api/db/stars.db' #'sqlite:///db/stars.db'
+DB_CON = 'sqlite:///db/stars.db'#'sqlite:////home/jornau/starmap-api/db/stars.db' 
 class Constellation(Base):
 
     __tablename__ = "Constellations"
@@ -120,8 +120,8 @@ class Viewpoint(object):
     def visible_cons_now(self, min_):
         stars = []
         for star in self.__session.query(Star).filter(Star.con != None).all():
-            alt, az = self.__az_at(star.ra, star.dec)
-            if star.con != None and star.con_ent.name_rus not in stars and alt > min_:
+            alt, az = ra_dec_to_az_alt(star.ra, star.dec, self.latitude, self.degrees_gone)
+            if star.con_ent.name_rus not in stars and alt > min_:
                 star.alt = alt
                 star.az = az
                 stars.append(star.con_ent.name_rus)
@@ -157,6 +157,9 @@ class DB(object):
     def get_geo(self, city):
         return self.__session.query(User).filter(User.city == city).first()
 
+    def get_geo_rand(self):
+        return self.__session.query(User).filter(User.city != None).order_by(func.random()).first()
+
     def add_user(self, user_id):
         user = User(user_id = user_id)
         self.__session.add(user)
@@ -170,3 +173,59 @@ class DB(object):
     def close(self):
         self.__session.close()
         self.__engine.dispose()
+
+class Country(Base):
+    __tablename__ = 'Countries'
+
+    id = Column(Integer, primary_key=True)
+    full_name_rus = Column(String(100))
+    name_rus = Column(String(100))
+    full_name_eng = Column(String(100))
+    name_eng = Column(String(100))
+    iso_num = Column(Integer)
+    iso_two = Column(String(2))
+    iso_three = Column(String(3))
+
+    def __init__(self, full_name_rus, name_rus, full_name_eng, name_eng, iso_num, iso_two, iso_three):
+        self.full_name_rus = full_name_rus
+        self.name_rus = name_rus
+        self.full_name_eng = full_name_eng
+        self.name_eng = name_eng
+        self.iso_num = iso_num
+        self.iso_two = iso_two
+        self.iso_three = iso_three
+
+class City(Base):
+    __tablename__ = 'Cities'
+
+    id = Column(Integer, primary_key=True)
+    geo_id = Column(Integer)
+    name_utf = Column(String(200))
+    name_ascii = Column(String(200))
+    lat = Column(Float)
+    lon = Column(Float)
+    country_id = Column(Integer, ForeignKey('Countries.id'))
+    country = relationship('Country', foreign_keys=country_id)
+    timezone = Column(String(40))
+
+    def __init__(self, geo_id, name_utf, name_ascii, lat, lon, country_id, timezone):
+        self.geo_id = geo_id
+        self.name_utf = name_utf
+        self.name_ascii = name_ascii
+        self.lat = lat
+        self.lon = lon
+        self.country_id = country_id
+        self.timezone = timezone
+
+class AltName(Base):
+    __tablename__ = 'AltNames'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(200))
+    city_id = Column(Integer,ForeignKey('Cities.id'))
+    city = relationship('City', lazy='joined', foreign_keys=city_id)
+
+    def __init__(self, name, city):
+        self.name = name
+        self.city = city
+

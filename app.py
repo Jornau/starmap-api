@@ -22,11 +22,9 @@ def main():
         cur_user = db.add_user(user_id)
         known = False
 
-
     cmd = req.request.command.lower()
 
     if 'созвезди' in cmd:
-
         user_geo = req.get_entities(pyalice.YA_GEO)
         if len(user_geo) > 0 and user_geo[0].value.city != None:
             n_geo = db.get_geo(user_geo[0].value.city)
@@ -38,16 +36,12 @@ def main():
                         res.response = tech_problems()
                     else:
                         res.response = ask_loc_again(user_geo[0].value.city)
-                    return res.build_json()
-                finally:
-                    db.close()
-            cur_user.timezone = n_geo.timezone
-            cur_user.city = n_geo.city
-            cur_user.lat = n_geo.lat
-            cur_user.lon = n_geo.lon
+                        db.close()
+                    return res.build_json() 
+            cur_user = set_user_attr(cur_user, n_geo)                   
         if cur_user.timezone == None:
-            res.response = ask_location()
-            return res.build_json()
+            n_geo = db.get_geo_rand()
+            cur_user = set_user_attr(cur_user, n_geo)
         db.close()
 
         user_datetime = req.get_entities(pyalice.YA_DT)
@@ -80,7 +74,7 @@ def main():
     if 'задать место' in cmd:
         user_geo = req.get_entities(pyalice.YA_GEO)
         if len(user_geo) > 0 and user_geo[0].value.city != None:
-            city = user_geo[0].value.city
+            city = user_geo[0].value.city.title()
             n_geo = db.get_geo(city)
             if n_geo == None:
                 try:
@@ -106,7 +100,7 @@ def main():
         res.response = confirm_location(city)        
         return res.build_json()
 
-    if 'справка' in cmd:
+    if 'справка' or 'помощь' or 'что ты умеешь' in cmd:
         res.response = help()
         db.close()
         return res.build_json()
@@ -120,6 +114,14 @@ def main():
     res.response = no_dialogs()
     return res.build_json()
 
+def dialog()
+
+def set_user_attr(cur_user, n_geo):
+    cur_user.timezone = n_geo.timezone
+    cur_user.city = n_geo.city
+    cur_user.lat = n_geo.lat
+    cur_user.lon = n_geo.lon
+    return cur_user
 
 def constellations_card(cons, cur_user, dt_loc, fl = False):    
     ldt = f'{cur_user.city.title()}. {dt_loc.strftime("%d")} {months[dt_loc.month - 1]} {dt_loc.strftime("%H:%M")}.'
@@ -150,9 +152,6 @@ def get_constellation(latitude, longitude, dt, lim):
 
 def greeting(cur_user, known = False):
     text = 'Привет! Я Астроном. Зная дату, время и местоположение, я подскажу какие созвездия можно увидеть. В запросе используйте слово "Созвездия".' +\
-        '\n\nПроизнесите команду «Задать местоположение» и назовите населенный пункт. Он будет использоваться по-умолчанию.'+\
-        '\n\nДля помощи скажите «Справка»'
-    desc = 'Привет! Я Астроном. Зная дату, время и местоположение, я подскажу какие созвездия можно увидеть. В запросе используйте слово "Созвездия".' +\
         '\n\nПроизнесите команду «Задать местоположение» и назовите населенный пункт. Он будет использоваться по-умолчанию.'
     tts = 'Привет! Я Астроном. Зная дату, время и местоположение, я подскажу какие созвездия можно увидеть. В запросе используйте слово "Созвездия".' +\
         '- - - Произнесите команду «Задать местоположение» и назовите населенный пункт. Он будет использоваться по-умолчанию.'+\
@@ -161,10 +160,10 @@ def greeting(cur_user, known = False):
     text_known = ['Рад, что Вы вернулись.', 'Здравствуйте!', 'Готов начать поиск созвездий.']
     text_known = random.choice(text_known)
     if known == True and cur_user.city != None:
-        text = f'{text_known} Сохраненное местоположение - {cur_user.city}.'
+        tts = text = f'{text_known} Сохраненное местоположение - {cur_user.city}.'
     elif known == True and cur_user.city == None:
         tts = text = f'{text_known} Произнесите команду «Задать местоположение» и назовите населенный пункт.'
-    r = pyalice.Response(text,tts).add_image_card('1540737/024430afeff32cf0bbd8', description=desc)
+    r = pyalice.Response(text,tts).add_image_card('1540737/024430afeff32cf0bbd8', description=text)
     if cur_user.city != None:
         r.add_tip_button('Созвездия сегодня', hide=True)
     r.add_tip_button('Справка', hide=True)

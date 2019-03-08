@@ -30,3 +30,17 @@ def days_to_degrees(days):
 
 def sec_to_degrees(sec):
     return sec / 3600 * 15
+
+def ra_dec_to_az_alt(ra, dec, latitude, degrees_gone):
+    _lat = m.radians(latitude)
+    _dec = m.radians(dec)
+    _ra = ra * 15
+    _ha = m.radians(degrees_gone - _ra)
+    alt = (m.sin(_dec)*m.sin(_lat) + m.cos(_dec)*m.cos(_lat)*m.cos(_ha))
+    az = ((m.sin(_dec) - alt*m.sin(_lat)) / (m.cos(m.asin(alt))*m.cos(_lat)))
+    alt = m.degrees(m.asin(alt))
+    if m.sin(_ha) < 0:
+        az = m.degrees(m.acos(az))
+    else:
+        az = 360 - m.degrees(m.acos(az))
+    return alt, az
