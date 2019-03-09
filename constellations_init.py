@@ -70,7 +70,10 @@ class User(Base):
     user_id = Column(String(128), unique=True)
     city = Column(String(50), nullable=True)
     lat = Column(Float, nullable=True)
+    lat_last = Column(Float, nullable=True)
     lon = Column(Float, nullable=True)
+    lon_last = Column(Float, nullable=True)
+    dt_last = Column(String(100), nullable=True)
     gmt = Column(Integer, nullable=True)
     dst = Column(Integer, nullable=True)
     timezone = Column(String(50), nullable=True)
@@ -161,6 +164,14 @@ session = Session()
 #Country.__table__.create(session.bind)
 #City.__table__.create(session.bind)
 #AltName.__table__.create(session.bind)
+print(session.query(User.lon_last).filter(User.user_id == 'alsur6d_13_4').one())
+""" def add_column(engine, table_name, column):
+    column_name = column.compile(dialect=engine.dialect)
+    column_type = column.type.compile(engine.dialect)
+    engine.execute('ALTER TABLE %s ADD COLUMN %s %s' % (table_name, column_name, column_type))
+
+add_column(engine, 'Users',Column('dt_loc_last', String(100))) """
+
 
 """ import io
 wr = io.open('C:/VSprojects/Startups/Stars/_stars/res.txt', 'w', encoding='utf-8')

@@ -94,7 +94,10 @@ class User(Base):
     user_id = Column(String(128), unique=True)
     city = Column(String(50), nullable=True)
     lat = Column(Float, nullable=True)
+    lat_last = Column(Float, nullable=True)
     lon = Column(Float, nullable=True)
+    lon_last = Column(Float, nullable=True)
+    dt_last = Column(String(100), nullable=True)
     gmt = Column(Integer, nullable=True)
     dst = Column(Integer, nullable=True)
     timezone = Column(String(50), nullable=True)
@@ -128,20 +131,6 @@ class Viewpoint(object):
         self.close()
         return stars
 
-    def __az_at(self, ra, dec):
-        _lat = m.radians(self.latitude)
-        _dec = m.radians(dec)
-        _ra = ra * 15
-        _ha = m.radians(self.degrees_gone - _ra)
-        alt = (m.sin(_dec)*m.sin(_lat) + m.cos(_dec)*m.cos(_lat)*m.cos(_ha))
-        az = ((m.sin(_dec) - alt*m.sin(_lat)) / (m.cos(m.asin(alt))*m.cos(_lat)))
-        alt = m.degrees(m.asin(alt))
-        if m.sin(_ha) < 0:
-            az = m.degrees(m.acos(az))
-        else:
-            az = 360 - m.degrees(m.acos(az))
-        return alt, az
-
     def close(self):
         self.__session.close()
         self.__engine.dispose()
@@ -155,10 +144,7 @@ class DB(object):
         return self.__session.query(User).filter(User.user_id == user_id).first()
 
     def get_geo(self, city):
-        return self.__session.query(User).filter(User.city == city).first()
-
-    def get_geo_rand(self):
-        return self.__session.query(User).filter(User.city != None).order_by(func.random()).first()
+        return self.__session.query(AltName).filter(AltName.name == city).first()
 
     def add_user(self, user_id):
         user = User(user_id = user_id)
@@ -168,7 +154,7 @@ class DB(object):
 
     def update_user(self, user):
         self.__session.add(user)
-        self.__session.commit()
+        self.__session.commit()    
 
     def close(self):
         self.__session.close()

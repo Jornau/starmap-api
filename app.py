@@ -13,11 +13,15 @@ db = DB()
 @app.route('/api', methods=['POST'])
 def main():
     try:
-        dialog(pyalice.In(request.json))
+        req = pyalice.In(request.json)
+        res = dialog(req)
     except:
-        return abort(500)
+        res = pyalice.Out(req)
+        res.response = tech_problems()
+        return res.build_json()
     finally:
         db.close()
+    return res
     
 
 def dialog(req):
@@ -35,19 +39,14 @@ def dialog(req):
     if 'созвезди' in cmd:
         user_geo = req.get_entities(pyalice.YA_GEO)
         if len(user_geo) > 0 and user_geo[0].value.city != None:
-            n_geo = db.get_geo(user_geo[0].value.city)
+            n_geo = db.get_geo(user_geo[0].value.city.title())
             if n_geo == None:
-                try:
-                    n_geo = geo.Geo(user_geo[0].value.city)
-                except:
-                    if n_geo.status != 200:
-                        res.response = tech_problems()
-                    else:
-                        res.response = ask_loc_again(user_geo[0].value.city)
-                    return res.build_json() 
-            cur_user = set_user_attr(cur_user, n_geo)                   
-        if cur_user.timezone == None:
-            n_geo = db.get_geo_rand()
+                res.response = ask_loc_again(user_geo[0].value.city.title())
+                return res.build_json()
+            cur_user = set_user_attr(cur_user, n_geo)
+        elif cur_user.timezone == None:
+            city_rand = ['Москва', 'Санкт-Петербург', 'Уфа', 'Казань', 'Новосибирск']
+            n_geo = db.get_geo(random.choice(city_rand))
             cur_user = set_user_attr(cur_user, n_geo)
 
         user_datetime = req.get_entities(pyalice.YA_DT)
@@ -56,22 +55,17 @@ def dialog(req):
         else:
             tzone = pytz.timezone(cur_user.timezone)
             dt_loc = datetime.now(tzone)
-            dt_loc = dt_loc.replace(hour=23, minute=00)
+            if dt_loc.hour > 6:
+                dt_loc = dt_loc.replace(hour=23, minute=00)
         lim = 5 if 'screen' in req.meta.interfaces else 7
+        last_search(cur_user, dt_loc)
         cons = get_constellation(cur_user.lat, cur_user.lon, dt_loc, lim)
         res.response = constellations_card(cons, cur_user, dt_loc)
         return res.build_json()
 
-    if 'показать все' in cmd:
-        data = req.request.payload
-        if data == None:
-            res.response = pyalice.Response('Данная функция доступна только по нажатию кнопки.')
-            return res
-        cur_user.lat = data['lat']
-        cur_user.lon = data['lon']
-        dt_loc = datetime.strptime(data['dt_loc'], '%Y-%m-%d %H:%M:%S.%f%z') #2019-03-07 01:25:40.805813+03:00
-        lim = data['lim']
-        cons = get_constellation(cur_user.lat, cur_user.lon, dt_loc, lim)
+    if 'список' in cmd and cur_user.dt_last != None:
+        dt_loc = datetime.strptime(cur_user.dt_last, '%Y-%m-%d %H:%M:%S.%f%z') #2019-03-07 01:25:40.805813+03:00
+        cons = get_constellation(cur_user.lat_last, cur_user.lon_last, dt_loc, 100)
         res.response = constellations_card(cons, cur_user, dt_loc, True)
         return res.build_json()
 
@@ -81,27 +75,18 @@ def dialog(req):
             city = user_geo[0].value.city.title()
             n_geo = db.get_geo(city)
             if n_geo == None:
-                try:
-                    n_geo = geo.Geo(city)
-                except:
-                    if n_geo.status != 200:
-                        res.response = tech_problems()
-                    else:
-                        res.response = ask_loc_again(city)
-                    return res.build_json()
+                res.response = ask_loc_again(city)
+                return res.build_json()
         else:
             res.response = ask_location()
             return res.build_json()
 
-        cur_user.timezone = n_geo.timezone
-        cur_user.city = n_geo.city
-        cur_user.lat = n_geo.lat
-        cur_user.lon = n_geo.lon
+        set_user_attr(cur_user, n_geo)
         db.update_user(cur_user)
-        res.response = confirm_location(city)        
+        res.response = confirm_location(city)
         return res.build_json()
 
-    if 'справка' or 'помощь' or 'что ты умеешь' in cmd:
+    if any(c in cmd for c in ['справка','что ты умеешь','помощь']):
         res.response = help()
         return res.build_json()
 
@@ -113,11 +98,17 @@ def dialog(req):
     return res.build_json()
 
 def set_user_attr(cur_user, n_geo):
-    cur_user.timezone = n_geo.timezone
-    cur_user.city = n_geo.city
-    cur_user.lat = n_geo.lat
-    cur_user.lon = n_geo.lon
+    cur_user.timezone = n_geo.city.timezone
+    cur_user.city = n_geo.name
+    cur_user.lat = n_geo.city.lat
+    cur_user.lon = n_geo.city.lon
     return cur_user
+
+def last_search(cur_user, dt_loc):
+    cur_user.lat_last = cur_user.lat
+    cur_user.lon_last = cur_user.lon
+    cur_user.dt_last = dt_loc.strftime('%Y-%m-%d %H:%M:%S.%f%z')
+    db.update_user(cur_user)
 
 def constellations_card(cons, cur_user, dt_loc, fl = False):    
     ldt = f'{cur_user.city.title()}. {dt_loc.strftime("%d")} {months[dt_loc.month - 1]} {dt_loc.strftime("%H:%M")}.'
@@ -129,15 +120,12 @@ def constellations_card(cons, cur_user, dt_loc, fl = False):
         tts = text = f'{ldt} Созвездия в зените:\n{cons}'
     else:
         tts = text = f'{ldt} Полный список созвездий:\n{cons}'
-    pl = {
-        'lat': cur_user.lat,
-        'lon': cur_user.lon,
-        'dt_loc': f'{dt_loc}',
-        'lim': 100,
-    }
+
     r = pyalice.Response(text + '\n\n*Время соответствует заданому местоположению.', tts)
     if fl == False:
-        r.add_tip_button('Полный список', None, pl, True)
+        tts += ' - - Скажите - Полный список - и я озвучу его полностью.'
+        r.add_tip_button('Полный список', hide=True)
+        r.tts = tts
     return r
 
 def get_constellation(latitude, longitude, dt, lim):
