@@ -11,7 +11,7 @@ import os.path as p
 
 Base = declarative_base()
 
-DB_CON = 'sqlite:////home/jornau/starmap-api/db/stars.db' #'sqlite:////home/jornau/starmap-api/db/stars.db' #'sqlite:///db/stars.db'
+DB_CON = 'sqlite:///db/stars.db' #'sqlite:////home/jornau/starmap-api/db/stars.db' #'sqlite:///db/stars.db'
 class Constellation(Base):
 
     __tablename__ = "Constellations"
@@ -139,7 +139,7 @@ class Viewpoint(object):
 class DB(object):
     def __init__(self):
         self.__engine = create_engine(DB_CON)
-        self.__session = sessionmaker(bind=self.__engine)()
+        self.__session = sessionmaker(bind=self.__engine, autoflush=False)()
 
     def get_user(self, user_id):
         return self.__session.query(User).filter(User.user_id == user_id).first()
@@ -152,6 +152,9 @@ class DB(object):
         self.__session.add(user)
         self.__session.commit()
         return user
+
+    def seession_rollback(self):
+        self.__session.rollback()
 
     def update_user(self, user):
         self.__session.add(user)

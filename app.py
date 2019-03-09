@@ -60,6 +60,7 @@ def dialog(req):
         lim = 5 if 'screen' in req.meta.interfaces else 7
         cons = get_constellation(cur_user.lat, cur_user.lon, dt_loc, lim)
         res.response = constellations_card(cons, cur_user, dt_loc)
+        db.seession_rollback()
         last_search(cur_user, dt_loc)
         return res.build_json()
 
@@ -68,6 +69,7 @@ def dialog(req):
         cons = get_constellation(cur_user.lat_last, cur_user.lon_last, dt_loc, 100)
         cur_user.city = cur_user.city_last
         res.response = constellations_card(cons, cur_user, dt_loc, True)
+        reset_user_attr(cur_user)
         return res.build_json()
 
     if 'задать место' in cmd:
@@ -105,6 +107,13 @@ def set_user_attr(cur_user, n_geo):
     cur_user.lon = n_geo.city.lon
     return cur_user
 
+def reset_user_attr(cur_user):
+    cur_user.lat_last = None
+    cur_user.lon_last = None
+    cur_user.dt_last = None
+    cur_user.city_last = None
+    db.update_user(cur_user)
+
 def last_search(cur_user, dt_loc):
     cur_user.lat_last = cur_user.lat
     cur_user.lon_last = cur_user.lon
@@ -112,7 +121,7 @@ def last_search(cur_user, dt_loc):
     cur_user.city_last = cur_user.city
     db.update_user(cur_user)
 
-def constellations_card(cons, cur_user, dt_loc, fl = False):    
+def constellations_card_(cons, cur_user, dt_loc, fl = False):    
     ldt = f'{cur_user.city.title()}. {dt_loc.strftime("%d")} {months[dt_loc.month - 1]} {dt_loc.strftime("%H:%M")}.'
     if len(cons) > 7:
         cons = str.join(", ", cons)
@@ -125,15 +134,38 @@ def constellations_card(cons, cur_user, dt_loc, fl = False):
 
     r = pyalice.Response(text + '\n\n*Время соответствует заданому местоположению.', tts)
     if fl == False:
-        tts += ' - - Скажите - Полный список - и я озвучу его полностью.'
+        tts += ' - - Скажите - Полный список - и я озвучу.'
         r.add_tip_button('Полный список', hide=True)
+        r.tts = tts
+    return r
+
+def constellations_card(cons, cur_user, dt_loc, fl = False):
+    
+    ldt = f'{cur_user.city.title()}. {dt_loc.strftime("%d")} {months[dt_loc.month - 1]} {dt_loc.strftime("%H:%M")}.'
+    if len(cons) > 7:
+        cons = str.join(", ", cons)
+    else:
+        pass#cons = str.join("\n", cons)
+    if fl == False:
+        tts = text = f'{ldt} Созвездия в зените:\n{cons}'
+    else:
+        tts = text = f'{ldt} Полный список созвездий:\n{cons}'
+    r = None
+    r = pyalice.Response(text + '\n\n*Время соответствует заданому местоположению.', tts)
+    if fl == False:
+        tts += ' - - Скажите - Полный список - и я озвучу.'
+        r.add_items_card().add_header(f'{ldt} Созвездия в зените:\n')
+        r.card.items = []
+        for con in cons:
+            r.add_image(title=con)
+        r.add_footer('Полный список')
         r.tts = tts
     return r
 
 def get_constellation(latitude, longitude, dt, lim):
     view = Viewpoint(latitude, longitude, dt)
     if lim > 7:
-        return view.visible_cons_now(0)[:lim]
+        return view.visible_cons_now(30)[:lim]
     return view.visible_cons_now(65)[:lim]
 
 def greeting(cur_user, known = False):
