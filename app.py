@@ -12,15 +12,15 @@ db = DB()
 
 @app.route('/api', methods=['POST'])
 def main():
-    #try:
-    req = pyalice.In(request.json)
-    res = dialog(req)
-    #except:
-     #   res = pyalice.Out(req)
-      #  res.response = tech_problems()
-       # return res.build_json()
-    #finally:
-    db.close()
+    try:
+        req = pyalice.In(request.json)
+        res = dialog(req)
+    except:
+        res = pyalice.Out(req)
+        res.response = tech_problems()
+        return res.build_json()
+    finally:
+        db.close()
     return res
     
 
