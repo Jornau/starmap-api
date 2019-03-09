@@ -33,9 +33,9 @@ def dialog(req):
     if cur_user == None:
         cur_user = db.add_user(user_id)
         known = False
-
-    cmd = req.request.command.lower()
-
+        
+    cmd = req.request.command.lower() if req.request.command != None else ''
+    
     if 'созвезди' in cmd:
         user_geo = req.get_entities(pyalice.YA_GEO)
         if len(user_geo) > 0 and user_geo[0].value.city != None:
