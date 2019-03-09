@@ -69,6 +69,7 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(String(128), unique=True)
     city = Column(String(50), nullable=True)
+    city_last = Column(String(50), nullable=True)
     lat = Column(Float, nullable=True)
     lat_last = Column(Float, nullable=True)
     lon = Column(Float, nullable=True)
@@ -170,7 +171,7 @@ print(session.query(User.lon_last).filter(User.user_id == 'alsur6d_13_4').one())
     column_type = column.type.compile(engine.dialect)
     engine.execute('ALTER TABLE %s ADD COLUMN %s %s' % (table_name, column_name, column_type))
 
-add_column(engine, 'Users',Column('dt_loc_last', String(100))) """
+add_column(engine, 'Users',Column('city_last', String(50))) """
 
 
 """ import io

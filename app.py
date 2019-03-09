@@ -2,7 +2,7 @@ from __future__ import unicode_literals
 from flask import Flask, jsonify, request, abort
 from starmap import Viewpoint, User, DB
 from datetime import datetime
-import geo, pytz, pyalice, json, random
+import geo, pytz, pyalice, json, random, copy
 
 TOKEN = 'AQAAAAAntjk7AAT7o_0zkdk7VEsqtM2-PfkNR44'
 ID = '556d8e12-1127-4c16-9fe1-bc4c9bd61df1'
@@ -58,14 +58,15 @@ def dialog(req):
             if dt_loc.hour > 6:
                 dt_loc = dt_loc.replace(hour=23, minute=00)
         lim = 5 if 'screen' in req.meta.interfaces else 7
-        last_search(cur_user, dt_loc)
         cons = get_constellation(cur_user.lat, cur_user.lon, dt_loc, lim)
         res.response = constellations_card(cons, cur_user, dt_loc)
+        last_search(cur_user, dt_loc)
         return res.build_json()
 
     if 'список' in cmd and cur_user.dt_last != None:
         dt_loc = datetime.strptime(cur_user.dt_last, '%Y-%m-%d %H:%M:%S.%f%z') #2019-03-07 01:25:40.805813+03:00
         cons = get_constellation(cur_user.lat_last, cur_user.lon_last, dt_loc, 100)
+        cur_user.city = cur_user.city_last
         res.response = constellations_card(cons, cur_user, dt_loc, True)
         return res.build_json()
 
@@ -108,6 +109,7 @@ def last_search(cur_user, dt_loc):
     cur_user.lat_last = cur_user.lat
     cur_user.lon_last = cur_user.lon
     cur_user.dt_last = dt_loc.strftime('%Y-%m-%d %H:%M:%S.%f%z')
+    cur_user.city_last = cur_user.city
     db.update_user(cur_user)
 
 def constellations_card(cons, cur_user, dt_loc, fl = False):    
@@ -178,12 +180,12 @@ def confirm_location(city):
 def help():
     text = 'Поисковая фраза должна содержать слово «Созвездия».\n'+\
         'Чтобы задать или изменить место наблюдения, произнесите «Задать местоположение» и назовите населенный пункт.\n'+\
-            'Можно указывать место наблюдения прямо в запросе. В таком случае оно не будет сохранено и не заменит место по-умолчанию.\n'+\
+            'Можно указывать место наблюдения прямо в запросе. Например, какие созвездия будут завтра в Мурманске.\n'+\
                 'При отсутствии даты и времени, будут запрошены созвездия на текущую дату в 23:00.'+\
                     'При отсутствии времени - на выбранную дату, тоже в 23:00.'
     tts = 'Поисковая фраза должна содержать слово «Созвездия».'+\
         '- - - Чтобы задать или изменить место наблюдения, произнесите «Задать местоположение» и назовите населенный пункт.'+\
-            '- - - Можно указывать место наблюдения прямо в запросе. В таком случае оно не будет сохранено и не заменит место по-умолчанию.'+\
+            '- - - Можно указывать место наблюдения прямо в запросе. Например, - какие созвездия будут завтра в Мурманске.'+\
                 '- - - При отсутствии даты и времени, будут запрошены созвездия на текущую дату в 23:00.'+\
                     'При отсутствии времени - на выбранную дату, тоже в 23:00.'
     

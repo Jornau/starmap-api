@@ -11,7 +11,7 @@ import os.path as p
 
 Base = declarative_base()
 
-DB_CON = 'sqlite:////home/jornau/starmap-api/db/stars.db' #'sqlite:///db/stars.db'
+DB_CON = 'sqlite:////home/jornau/starmap-api/db/stars.db' #'sqlite:////home/jornau/starmap-api/db/stars.db' #'sqlite:///db/stars.db'
 class Constellation(Base):
 
     __tablename__ = "Constellations"
@@ -93,6 +93,7 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(String(128), unique=True)
     city = Column(String(50), nullable=True)
+    city_last = Column(String(50), nullable=True)
     lat = Column(Float, nullable=True)
     lat_last = Column(Float, nullable=True)
     lon = Column(Float, nullable=True)
