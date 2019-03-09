@@ -61,7 +61,7 @@ def dialog(req):
         cons = get_constellation(cur_user.lat, cur_user.lon, dt_loc, lim)
         res.response = constellations_card(cons, cur_user, dt_loc)
         db.seession_rollback()
-        last_search(cur_user, dt_loc)
+        last_search(cur_user, n_geo, dt_loc)
         return res.build_json()
 
     if 'список' in cmd and cur_user.dt_last != None:
@@ -114,11 +114,11 @@ def reset_user_attr(cur_user):
     cur_user.city_last = None
     db.update_user(cur_user)
 
-def last_search(cur_user, dt_loc):
-    cur_user.lat_last = cur_user.lat
-    cur_user.lon_last = cur_user.lon
+def last_search(cur_user, n_geo, dt_loc):
+    cur_user.lat_last = n_geo.city.lat
+    cur_user.lon_last = n_geo.city.lon
     cur_user.dt_last = dt_loc.strftime('%Y-%m-%d %H:%M:%S.%f%z')
-    cur_user.city_last = cur_user.city
+    cur_user.city_last = n_geo.name
     db.update_user(cur_user)
 
 def constellations_card_(cons, cur_user, dt_loc, fl = False):    
