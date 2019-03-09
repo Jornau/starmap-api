@@ -11,7 +11,7 @@ import os.path as p
 
 Base = declarative_base()
 
-DB_CON = 'sqlite:////home/jornau/starmap-api/db/stars.db' #'sqlite:////home/jornau/starmap-api/db/stars.db' #'sqlite:///db/stars.db'
+DB_CON = 'sqlite:///db/stars.db' #'sqlite:////home/jornau/starmap-api/db/stars.db' #'sqlite:///db/stars.db'
 class Constellation(Base):
 
     __tablename__ = "Constellations"

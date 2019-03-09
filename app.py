@@ -12,15 +12,15 @@ db = DB()
 
 @app.route('/api', methods=['POST'])
 def main():
-    try:
-        req = pyalice.In(request.json)
-        res = dialog(req)
-    except:
-        res = pyalice.Out(req)
-        res.response = tech_problems()
-        return res.build_json()
-    finally:
-        db.close()
+    #try:
+    req = pyalice.In(request.json)
+    res = dialog(req)
+    #except:
+     #   res = pyalice.Out(req)
+      #  res.response = tech_problems()
+       # return res.build_json()
+    #finally:
+    db.close()
     return res
     
 
@@ -59,16 +59,24 @@ def dialog(req):
                 dt_loc = dt_loc.replace(hour=23, minute=00)
         lim = 5 if 'screen' in req.meta.interfaces else 7
         cons = get_constellation(cur_user.lat, cur_user.lon, dt_loc, lim)
-        res.response = constellations_card(cons, cur_user, dt_loc)
+        res.response = constellations_card(cons, cur_user.city, dt_loc)
+        id = cur_user.user_id
+        lon = cur_user.lon
+        lat = cur_user.lat
+        city = cur_user.city
         db.seession_rollback()
-        last_search(cur_user, n_geo, dt_loc)
+        cur_user = None
+        cur_user = db.get_user(id)
+        cur_user.lon_last = lon
+        cur_user.lat_last = lat
+        cur_user.city_last = city
+        last_search(cur_user, dt_loc)
         return res.build_json()
 
     if 'список' in cmd and cur_user.dt_last != None:
         dt_loc = datetime.strptime(cur_user.dt_last, '%Y-%m-%d %H:%M:%S.%f%z') #2019-03-07 01:25:40.805813+03:00
         cons = get_constellation(cur_user.lat_last, cur_user.lon_last, dt_loc, 100)
-        cur_user.city = cur_user.city_last
-        res.response = constellations_card(cons, cur_user, dt_loc, True)
+        res.response = constellations_card(cons, cur_user.city_last, dt_loc, True)
         reset_user_attr(cur_user)
         return res.build_json()
 
@@ -114,11 +122,8 @@ def reset_user_attr(cur_user):
     cur_user.city_last = None
     db.update_user(cur_user)
 
-def last_search(cur_user, n_geo, dt_loc):
-    cur_user.lat_last = n_geo.city.lat
-    cur_user.lon_last = n_geo.city.lon
+def last_search(cur_user, dt_loc):
     cur_user.dt_last = dt_loc.strftime('%Y-%m-%d %H:%M:%S.%f%z')
-    cur_user.city_last = n_geo.name
     db.update_user(cur_user)
 
 def constellations_card_(cons, cur_user, dt_loc, fl = False):    
@@ -139,9 +144,9 @@ def constellations_card_(cons, cur_user, dt_loc, fl = False):
         r.tts = tts
     return r
 
-def constellations_card(cons, cur_user, dt_loc, fl = False):
+def constellations_card(cons, city, dt_loc, fl = False):
     
-    ldt = f'{cur_user.city.title()}. {dt_loc.strftime("%d")} {months[dt_loc.month - 1]} {dt_loc.strftime("%H:%M")}.'
+    ldt = f'{city.title()}. {dt_loc.strftime("%d")} {months[dt_loc.month - 1]} {dt_loc.strftime("%H:%M")}.'
     if len(cons) > 7:
         cons = str.join(", ", cons)
     else:
