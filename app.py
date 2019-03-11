@@ -140,7 +140,7 @@ def constellations_card_(cons, cur_user, dt_loc, fl = False):
     r = pyalice.Response(text + '\n\n*Время соответствует заданому местоположению.', tts)
     if fl == False:
         tts += ' - - Скажите - Полный список - и я озвучу.'
-        r.add_tip_button('Полный список', hide=True)
+        r.add_tip_button('Полный список', payload=None, hide=True)
         r.tts = tts
     return r
 
@@ -188,19 +188,19 @@ def greeting(cur_user, known = False):
         tts = text = f'{text_known} Произнесите команду «Задать местоположение» и назовите населенный пункт.'
     r = pyalice.Response(text,tts).add_image_card('1540737/024430afeff32cf0bbd8', description=text)
     if cur_user.city != None:
-        r.add_tip_button('Созвездия сегодня', hide=True)
-    r.add_tip_button('Справка', hide=True)
+        r.add_tip_button('Созвездия сегодня', payload=None, hide=True)
+    r.add_tip_button('Справка', payload=None, hide=True)
     return r
 
 def no_dialogs():
     chs = ['Такого я не предвидел.', 'Видимо, мы друг друга не поняли.', 'Я просто засмотрелся на звезды.']
     chs = random.choice(chs)
     text = f'{chs} Скажите «Справка», если нужна помощь.'
-    return pyalice.Response(text, text).add_tip_button('Справка', hide=True)
+    return pyalice.Response(text, text).add_tip_button('Справка', payload=None, hide=True)
 
 def ask_location():
     text = 'Произнесите команду «Задать местоположение» и назовите населенный пункт.'
-    return pyalice.Response(text, text).add_tip_button('Созвездия в Москве', hide=True).add_tip_button('Созвездия в Париже', hide=True)
+    return pyalice.Response(text, text).add_tip_button('Созвездия в Москве', payload=None, hide=True).add_tip_button('Созвездия в Париже', payload=None, hide=True)
 
 def tech_problems():
     text = 'Произошла ошибка на сервере. Попробуйте выполнить запрос позднее.'
@@ -212,7 +212,7 @@ def ask_loc_again(city):
 
 def confirm_location(city):
     text = f'Местоположение {city.title()} успешно сохранено.'
-    return pyalice.Response(text, text).add_tip_button('Созвездия сегодня', hide=True).add_tip_button('Справка', hide=True)
+    return pyalice.Response(text, text).add_tip_button('Созвездия сегодня', payload=None, hide=True).add_tip_button('Справка', payload=None, hide=True)
 
 def help():
     text = 'Поисковая фраза должна содержать слово «Созвездия».\n'+\
