@@ -21,7 +21,7 @@ lxml==4.3.2
 MarkupSafe==1.1.0
 matplotlib==3.0.2
 mccabe==0.6.1
-numpy==1.16.2
+numpy==1.22.0
 pyalice==0.2.2
 pylint==2.2.2
 pyparsing==2.3.1
